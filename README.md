@@ -9,10 +9,12 @@ A little chat server to introduce students to Erlang
 - expects <handle>::<text>
 - /who command prints out a comma-separate list of handles online
 - default handle is a pid
+- use priv/chat.html or priv/chat2.html
 
 ## simple /simple_chat
 - broadcasts to all other channels
 - notifies clients on connections, disconnections
+- use priv/simple_chat.html
 
 ## hello handler
 - hellow world style HTTP handler
