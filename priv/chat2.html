@@ -1,0 +1,208 @@
+<!-- TODO
+  - add a timer for the connection timeout
+  - add a "keep alive" button
+    - or use mouse movement or something
+  - register the handle on connection
+  - Have a list of connected users that automatically stays up to date
+    - maybe refresh once a minute
+    - also listen for connection/disconnection events
+  - add a "disconnected" message
+  - turn output grey when disconnected
+-->
+<html>
+<head>
+  <title>Chat Level 3</title>
+  <link rel="icon" type="image/x-icon" href="/images/favicon.ico">
+  <style>
+    P {margin:0px; margin-top:5px;}
+    .table {display: table;}
+    .top {display: table-cell; vertical-align:top;}
+  </style>
+  <script src="beep.js"></script>
+  <script type="application/javascript">
+    var interval;
+    var messages = [];
+
+    document.addEventListener('DOMContentLoaded', start);
+    var socket = new WebSocket("ws://kwalicum.ca:8080/chat");
+
+    socket.onopen = function(e) {
+      console.log("[open] Connection established");
+    };
+
+    socket.onmessage = function(event) {
+      //console.log(`[message] Data received from server: ${event.data}`);
+      let data = event.data;
+      if(data.substr(0,8) == 'Online: '){
+        let users = data.substr(8).replaceAll(',', '\n');
+        let who = elem("who");
+        who.value = users;
+      }else{
+        let messagesDiv = elem("messagesDiv");
+        let divOuter = document.createElement('div');
+        divOuter.style.display = 'table';
+
+        let divTime = document.createElement('div');
+        divTime.innerText = (new Date()).toTimeString().split(' ')[0];
+        divTime.style.display = 'table-cell';
+        divTime.style.marginRight = '10px';
+        divTime.style.paddingRight = '3px';
+        divTime.style.paddingLeft = '3px';
+        divTime.style.backgroundColor = '#E0E0E0';
+        //divTime.style.border = '1px solid red';
+
+        let divChat = document.createElement('div');
+        divChat.innerText = event.data;
+        divChat.style.display = 'table-cell';
+        divChat.style.paddingLeft = '10px';
+        //divChat.style.border = '1px solid blue';
+
+        divOuter.appendChild(divTime);
+        divOuter.appendChild(divChat);
+        messagesDiv.appendChild(divOuter);
+
+        messages.push(divOuter);
+        while(messages.length > 50){
+          let elem = messages.shift();
+          elem.remove();
+        }
+        beep();
+      }
+    };
+
+    socket.onclose = function(event) {
+      if (event.wasClean) {
+        console.log(`[close] Connection closed cleanly, code=${event.code} reason=${event.reason}`);
+      } else {
+        // e.g. server process killed or network down
+        // event.code is usually 1006 in this case
+        console.log('[close] Connection died');
+      }
+    };
+
+    socket.onerror = function(error) {
+      console.log(`[error] ${error.message}`);
+    };
+
+    function send(input, shouldClear = true){
+        let handle_input = elem("handle");
+        let chat_input = elem("chat_input");
+        let handle = handle_input.value;
+        let text;
+        if(input == undefined){
+           text = chat_input.value;
+        }else{
+           text = input;
+        }
+        //console.log(`Sending ${handle}::${text}`);
+        socket.send(handle + '::' + text);
+        if(shouldClear){
+          elem("chat_input").value = '';
+        }
+    }
+
+    function elem(id){
+      return document.getElementById(id);
+    }
+
+    function enterKeyPressed(event) {
+       if (event.keyCode == 13) {
+          //console.log("Enter key is pressed");
+          send();
+          return true;
+       } else {
+          return true;
+       }
+    }
+
+    function clear_output(){
+        while(messages.length > 0){
+          messages.shift().remove();
+        }
+    }
+
+    function clear_input(){
+        elem("chat_input").value = '';
+    }
+
+    function start(){
+      init_messages();
+      start_who_loop();
+    }
+
+    const ELEMENT_TYPE = 1;
+    const DIV_NAME = 'DIV';
+
+    function init_messages(){
+      let messagesDiv = elem("messagesDiv");
+      let children = messagesDiv.children;
+      for(let child of children){
+        if(child.nodeType == ELEMENT_TYPE  && child.nodeName == DIV_NAME){
+          messages.unshift(child);
+        }else{
+          // remove text nodes
+          child.remove();
+        }
+      }
+    }
+
+    function start_who_loop(){
+      interval = setInterval(who, 3000);
+    }
+
+    function who(){
+      send("/who", false);
+    }
+  </script>
+  <script src="rand_animal.js" type="application/javascript"></script>
+  <script src="rand_colour.js" type="application/javascript"></script>
+  <script type="application/javascript">
+    document.addEventListener('DOMContentLoaded', set_handle);
+
+    function set_handle(){
+      // Give the user a random handle
+      console.log('setting handle');
+      let handle_input = elem("handle");
+      let handle_value = random_colour() + random_animal();
+      handle_input.value = handle_value;
+    }
+  </script>
+</head>
+<body>
+<a href="index.html">home</a>
+<p>
+Handle/Nickname: 
+<input id="handle" type="text" value="handle">
+</p>
+<p>
+Chat Message: 
+<input id="chat_input"
+       type="text"
+       value="Say something here"
+       onkeypress="return enterKeyPressed(event)",
+       onclick="clear_input();">
+<button id="b1" value="chat" onclick="send();">chat</button>
+<button id="b2" value="/who" onclick="send('/who');">/who</button>
+<!-- there's already a "clear()" function -->
+<button id="b2" value="clear" onclick="clear_output();">clear</button>
+</p>
+<br>
+<div class="table">
+  <div id="messagesDiv" class="top" style="width:500px; border: 1px solid black;">
+    <div>Type a message in the chat message box and hit [enter] or press the "chat" button</div>
+    <div>Connection timeout has been increased to 8 hours.</div>
+  </div>
+  <div class="top">
+    <div class="top" style="text-align: center; width: 200px">
+      Online:
+    </div>
+    <textarea id="who"
+              cols="30"
+              rows="20"
+              readonly="true">
+    Who's here?
+    </textarea>
+  </div>
+</div>
+</body>
+</html>
